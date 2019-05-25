@@ -31,7 +31,7 @@ ImageDownloader::~ImageDownloader()
     if (last_image)
     {
         ImageStatistics stat = *image_statistic;
-        std::clog << "download completed"
+        std::clog << "Download completed "
                   << "["
                       << stat.was_saved
                       << " / "
