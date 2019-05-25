@@ -1,14 +1,16 @@
 #pragma once
+
+#include <memory>
+
 #include <QObject>
 #include <QRunnable>
 #include <QUrl>
-#include <memory>
 
 #include "imagestatistics.h"
 
 class QNetworkAccessManager;
-class QMutex;
 class QNetworkReply;
+class QMutex;
 
 class ImageDownloader : public QObject, public QRunnable
 {
@@ -19,10 +21,12 @@ class ImageDownloader : public QObject, public QRunnable
     QString filename;
     QMutex & io_mutex;
     std::shared_ptr<ImageStatistics> image_statistic;
+    bool check_exists();
+    QString get_extension();
+
 public:
     void run() override;
 
-    bool check_exists();
     ImageDownloader(QUrl url, QString filename, QMutex &mutex, std::shared_ptr<ImageStatistics> image_statistic);
     ~ImageDownloader() override;
 };

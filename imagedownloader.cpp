@@ -1,13 +1,22 @@
 #include "imagedownloader.h"
-#include <QtNetwork/QNetworkAccessManager>
-#include <QtNetwork/QNetworkReply>
-#include <QUrl>
-#include <QtNetwork/QNetworkRequest>
-#include <QEventLoop>
-#include <QFile>
-#include <QFileInfo>
+
 #include <iostream>
+
+#include <QtNetwork/QNetworkAccessManager>
+#include <QtNetwork/QNetworkRequest>
+#include <QtNetwork/QNetworkReply>
+
+#include <QEventLoop>
+#include <QFileInfo>
+#include <QFile>
+
 #include <QMutex>
+
+#include <QMimeDatabase>
+#include <QMimeType>
+
+#include <QDir>
+
 
 ImageDownloader::ImageDownloader(QUrl url, QString filename, QMutex& mutex, std::shared_ptr<ImageStatistics> image_statistic)
     : url(url)
@@ -51,10 +60,10 @@ void ImageDownloader::run()
 
     if (check_exists()) return;
 
-    auto reply = manager->get(QNetworkRequest(url));
+    QFile file(filename + ".tmp");
+    file.open(QIODevice::ReadWrite);
 
-    QFile file(filename);
-    file.open(QIODevice::WriteOnly);
+    auto reply = manager->get(QNetworkRequest(url));
 
     QEventLoop loop;
     connect(reply, &QNetworkReply::readyRead, [&](){ file.write(reply->readAll()); });
@@ -67,23 +76,60 @@ void ImageDownloader::run()
         io_mutex.unlock();
 
         if (file.isOpen()) file.close();
-
         file.remove();
 
+//        TO DO: try redownload images with error
+//        QRunnable * downloader = new ImageDownloader(url, filename, io_mutex, statistic);
+//        pool.start(downloader, 2);
+
         return;
+    };
+
+    file.flush();
+    file.close();
+
+    file.rename(filename + get_extension());
+
+    if (QFileInfo::exists(filename + ".tmp")) {
+        QFile::remove(filename + ".tmp");
     }
 
+    io_mutex.lock();
     ++image_statistic->was_saved;
-   file.close();
+    io_mutex.unlock();
+}
+
+QString ImageDownloader::get_extension()
+{
+    QMimeDatabase db;
+    QString extension;
+
+    if (QStringList suffixes = db.mimeTypeForFile(filename + ".tmp").suffixes(); suffixes.length()){
+        extension = "." + suffixes[0];
+    }
+
+    return extension;
 }
 
 bool ImageDownloader::check_exists()
 {
-    if (!QFileInfo::exists(filename)) return false;
 
-    io_mutex.lock();
-    ++image_statistic->count_of_already_exists;
-    io_mutex.unlock();
 
-    return true;
+    if (QFileInfo::exists(filename + ".tmp")) {
+        QFile file(filename + ".tmp");
+        file.remove();
+    }
+
+    QDir dir(QFileInfo(filename).path());
+    auto list = dir.entryList({QFileInfo(filename).fileName() + "*"},  QDir::NoDotAndDotDot|QDir::AllDirs|QDir::Files);
+
+    if (list.size()) {
+        io_mutex.lock();
+        ++image_statistic->count_of_already_exists;
+        io_mutex.unlock();
+
+        return true;
+    } else {
+        return false;
+    }
 }

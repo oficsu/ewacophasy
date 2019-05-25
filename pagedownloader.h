@@ -1,15 +1,16 @@
 #pragma once
-#include <QObject>
-#include <QRunnable>
-#include <QMutex>
-#include <QUrl>
+
 #include <memory>
 #include <set>
 
+#include <QObject>
+#include <QRunnable>
+#include <QUrl>
+
 class QNetworkAccessManager;
 class QNetworkReply;
-class QMutex;
 class QThreadPool;
+class QMutex;
 
 class PageDownloader : public QObject, public QRunnable
 {

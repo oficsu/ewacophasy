@@ -1,20 +1,24 @@
 #include "pagedownloader.h"
 
+#include <iostream>
+#include <utility>
+
 #include <QtNetwork/QNetworkAccessManager>
 #include <QtNetwork/QNetworkReply>
-#include <QUrl>
 #include <QtNetwork/QNetworkRequest>
+
+#include <QThreadPool>
 #include <QEventLoop>
+
 #include <QFile>
-#include <iostream>
+
 #include <QMutex>
+
 #include <QRegularExpression>
 #include <QRegularExpressionMatch>
 #include <QRegularExpressionMatchIterator>
-#include <QThreadPool>
+
 #include <QDir>
-#include <utility>
-#include <QDebug>
 
 #include "imagedownloader.h"
 #include "imagestatistics.h"
@@ -135,7 +139,7 @@ void PageDownloader::start_next_pages(const std::vector<QUrl>& pages)
         QUrl page_url = url.resolved(page);
 
         QRunnable * downloader = new PageDownloader(page_url, save_path, depth + 1, max_depth, io_mutex, pool);
-        pool.start(downloader);
+        pool.start(downloader, 1);
     }
 
 }
@@ -163,15 +167,20 @@ void PageDownloader::start_next_images(const std::vector<QUrl> &images)
         return;
     }
 
+    auto statistic = std::make_shared<ImageStatistics>();
+    *statistic = {images.size(), 0, 0, 0};
 
-    auto remained_from = std::make_shared<ImageStatistics>();
-    *remained_from = {images.size(), 0, 0, 0};
+    size_t padding = 1;
+    for (size_t size = images.size(); size > 10; size /= 10) {
+        ++padding;
+    }
 
     for (size_t i = 0; i != images.size(); ++i) {
-        QString file_name = save_path + "/" + save_directory + "/image_" + QString::number(i);
+        QString file_name = save_path + "/" + save_directory + QString("/image_%1").arg(i, padding, 10, QChar('0'));
 
         QUrl image_url = url.resolved(images[i]);
-        QRunnable * downloader = new ImageDownloader(image_url, file_name, io_mutex, remained_from);
+
+        QRunnable * downloader = new ImageDownloader(image_url, file_name, io_mutex, statistic);
         pool.start(downloader, 2);
     }
 }
