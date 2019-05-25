@@ -78,6 +78,8 @@ void PageDownloader::run()
 
     pages_history_mutex.lock();
     if(history_pages.count(url.path())) {
+        std::cerr << "This is a duplicate: " << url.toString().toStdString() << std::endl;
+        pages_history_mutex.unlock();
         return;
     } else {
         history_pages.insert(url.path());
@@ -94,8 +96,6 @@ void PageDownloader::run()
         auto reply = manager->get(request);
 
         QEventLoop loop;
-
-
         connect(reply, &QNetworkReply::readyRead, [&]() { page.append(reply->readAll()); });
         connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
         loop.exec();
@@ -120,8 +120,6 @@ void PageDownloader::run()
             return;
         }
     }
-
-
 
     auto [next_pages, next_images] = page_parser(page);
     start_next_images(next_images);
